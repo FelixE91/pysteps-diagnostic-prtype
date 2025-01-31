@@ -1,0 +1,13 @@
+
+# List here all the required packages of the project's development environment.
+
+pip
+wheel
+watchdog
+tox
+coverage
+Sphinx
+pytest
+pytest-runner
+
+
