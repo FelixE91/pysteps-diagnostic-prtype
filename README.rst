@@ -19,11 +19,12 @@ This is a plugin designed for implementation alongside the pySTEPS package. This
 Installation instructions
 =========================
 
-This plugin can be installed directly from github using:
+This plugin can be installed using:
 
 .. code-block:: console
 
-  $ pip install -e git+https://github.com/FelixE91/pysteps_diagnostic_prtype#egg=pysteps_diagnostic_prtype
+  $ git clone git@github.com:FelixE91/pysteps_diagnostic_prtype.git
+  $ pip install -e pysteps_diagnostic_prtype
 
 Credits
 =======
