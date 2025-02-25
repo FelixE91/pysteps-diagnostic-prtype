@@ -22,9 +22,11 @@ Installation instructions
 This plugin can be installed using:
 
 .. code-block:: console
+
   $ git clone git@github.com:FelixE91/pysteps_diagnostic_prtype.git
 
 .. code-block:: console
+
   $ pip install -e pysteps_diagnostic_prtype
 
 Credits
