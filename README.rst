@@ -23,7 +23,7 @@ This plugin can be installed directly from github using:
 
 .. code-block:: console
 
-  $ pip install -e git+https://github.com/FelixE91/pysteps_diagnostic_prtype
+  $ pip install -e git+https://github.com/FelixE91/pysteps_diagnostic_prtype#egg=pysteps_diagnostic_prtype
 
 Credits
 =======
