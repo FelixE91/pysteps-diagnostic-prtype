@@ -4,6 +4,9 @@ pysteps-diagnostic-prtype
 
 Pysteps plugin for calculating the precipitation type of hydrometeors.
 
+Note: The installed package is called "pysteps-diagnostic-prtype" (with dashes) while the git repository is called "pysteps_diagnostic_prtype" (with underscores).
+To handle your install python package, use the package name (e.g., ``pip uninstall pysteps-diagnostic-prtype``)
+
 
 License
 =======
