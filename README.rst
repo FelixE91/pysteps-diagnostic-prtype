@@ -32,7 +32,7 @@ and then install with
 
 .. code-block:: console
 
-   pip install -e pysteps_diagnostic_prtype
+   pip install pysteps_diagnostic_prtype/
 
 Credits
 =======
