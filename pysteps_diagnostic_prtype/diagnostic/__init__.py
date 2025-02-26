@@ -1,2 +1,1 @@
-import cookiecutter
 from pysteps_diagnostic_prtype.diagnostic import diagnostic_prtype
