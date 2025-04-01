@@ -8,30 +8,40 @@ def test_plugins_discovery():
     correctly detected by pysteps. For this, the tests should be ran on the installed
     version of the plugin (and not against the plugin sources).
     """
-
-    from pysteps.io import interface as io_interface
+    # plugin exists as interface method
     from pysteps.postprocessing import interface as pp_interface
+    assert 'diagnostic_prtype' in pp_interface._diagnostics_methods
+    # plugin exists as module
+    import importlib
+    available_module_methods = [
+            attr
+            for attr in dir(importlib.import_module('pysteps.postprocessing.diagnostics'))
+        ]
+    assert 'diagnostic_prtype' in available_module_methods
 
-    plugin_type = "diagnostic"
-    if plugin_type == "importer":
-        new_importers = ["diagnostic_prtype"]
-        for importer in new_importers:
-            assert importer.replace("import_", "") in io_interface._importer_methods
-
-    elif plugin_type == "diagnostic":
-        new_dagnostics = ["diagnostic_prtype"]
-        for diagnostic in new_diagnostics:
-            assert diagnostic in pp_interface._diagnostics_methods
-            
-    elif plugin_type == "ensemblestat":
-        new_ensemblestats = ["diagnostic_prtype"]
-        for ensemblestat in new_ensemblestats:
-            assert ensemblestat in pp_interface._ensemblestats_methods
-
-def test_importers_with_files():
+def test_prtype_function():
     """Additionally, you can test that your plugin correctly reads the corresponding
     some example data.
     """
+    from pysteps.postprocessing.diagnostics import diagnostic_prtype
+    # load function with 8 arguments:
+    #    'filename'
+    #    'startdate'
+    #    'snowLevelData'
+    #    'temperatureData'
+    #    'groundTemperatureData'
+    #    'modelMetadataDictionary'
+    #    'topoFilename'
+    #    'nwc_projectionString'
+
+    ### load the test data (artificial) -> see example 
+
+    # create artifical snow level as array
+
+    # create artifical temperature field as array
+    
+    # create artifical topo data (or read Belgium data)
+    ### need to change function input: from tope filename to tope array (to match other input)
 
     # Write the test here.
     pass
