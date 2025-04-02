@@ -553,6 +553,14 @@ def calculate_precip_type(Znow, Temp, GroundTemp, precipGrid, topographyGrid, DZ
         Precipitation (netCDF PYSTEPS) 2D grid
     topographyGrid:
         Topography grid 2D
+    DZML:
+        thickness of the melting layer (default 100m)
+    TT0:
+        temperature threshold below which rain will freeze when it hits a freezing ground (default 2C)
+    TG0:
+        temperature threshold below which we have freezing rain or ground (default 0C)
+    RRMIN:
+        minimum precipitation threshold (default 0mm/h)
 
     returns:
         2D matrix with categorical data for each type
