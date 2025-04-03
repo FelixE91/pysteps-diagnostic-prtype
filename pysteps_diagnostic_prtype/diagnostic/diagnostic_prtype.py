@@ -22,19 +22,17 @@ from pysteps.io import import_netcdf_pysteps
 from pysteps.visualization import get_geogrid, get_basemap_axis
 
 
-def diagnostic_prtype(filename,
+def diagnostic_prtype(precip_field,
+                      precipMetadataDictionary,
                       startdate,
                       snowLevelData,
                       temperatureData,
                       groundTemperatureData,
                       modelMetadataDictionary,
-                      topoFilename,
-                      nwc_projectionString,
-                      members=None,
-                      timeBase=None,
-                      timeStep=None,
-                      topo_interpolation=None,
-                      desired_output=None,
+                      topographyData,
+                      topoMetadataDictionary,
+                      src_timestep=None,
+                      trgt_timestep=None,
                       **kwargs):
     """
     Calculate the precipitation types for ensemble data at particular time steps from a combination of a pysteps nowcast
@@ -43,9 +41,14 @@ def diagnostic_prtype(filename,
     Parameters
     ----------
 
-    filename : str
-      Path and name of the NetCDF file to import.
-      The NetCDF files and the projection files must be for the same date and time.
+    precip_field : 2D, 3D or 4D Array
+      The precipitation field as observation (2d, [X-coord,Y-coord]), as deterministic nowcast (3D, [time step,X-coord,Y-coord]),
+      or as probabilistic nowcast (4D, [member,time step,X-coord,Y-coord])
+      
+    precipMetadataDictionary: dict
+      A dictionary containing the metadata for the precipitation input.
+      Must contain the key "timestamps".
+      See pysteps.io.importers for metadata doc.
 
     startdate : datetime
       The time and date of the model files in the format "%Y%m%d%H%M" e.g. 202305010000 for midnight on the 1st of
@@ -62,100 +65,62 @@ def diagnostic_prtype(filename,
 
     modelMetadataDictionary: dict
       A dictionary containing the metadata for the snow level, temperature, and ground temperature data.
+      See pysteps.io.importers for metadata doc.
 
-    topoFilename : str
-      The path to the model topography file. The topography file is required to be in a text readable format such as
-      .asc
+    topographyData: 2D Array
+      Data should be in the form of a 2D matrix. [X-coord, Y-coord]
 
-    nwc_projectionString : str
-      The nowcast projection string.
+    topoMetadataDictionary: dict
+      A dictionary containing the metadata for the topography data.
+      See pysteps.io.importers for metadata doc.
 
-    members : int The number of ensemble members which you would like to receive the results of. This number can be
-    between 1 and 26.
+    src_timestep : int
+      The time step of the model fields as source. (min)
 
-    timeBase : int
-      The base for the time period. (min)
-
-    timeStep : int
-      The step for the time period. (min)
-
-    topo_interpolation : boolean
-      Whether the topography data requires interpolation. Default no, but can be adjusted
-      to yes. The topography data will require interpolation if it does not already have the same shape as that of the
-      weather model data.
-
-    desired_output : str
-      The desired output is an indicator used by the user to indicate their desired output parameter.
-      Currently, the function only features the optional outputs of full arrays of the number of members.
-      This option is chosen by the string 'members'.
-      Or the mean precipitation type across all members.
-      This option is chosen by the string 'mean',
-      This input field could be extended in the future to allow users to produce other desired outputs.
+    trgt_timestep : int
+      The time step of the precipitation nowcast as target. (min)
 
     {extra_kwargs_doc}
 
     Returns
     -------
     output:
-        A 3 or 4D array containing the desired output of the user.
-        Output arrays take the form [member, timeStamp, X-coord, Y-coord].
-        Or [timeStep, X-coord, Y-coord] in the case of mean calculations.
+        A 2D or 3D array containing the precipitation type mask for every pixel
+        where rain was observed/predicted (in any member if probabilistic input).
+        -> use the mask to apply for individual members afterwards
+        Output arrays take the form [timeStamp, X-coord, Y-coord].
+        Or [X-coord, Y-coord] in the case of observation as input.
     """
 
     # Run checks to ensure correct input parameters
-    if not isinstance(filename, str):
-        raise TypeError("Filename must be a string containing the path to the netCDF file")
-    if filename.rsplit('.', 1)[1] != 'nc':
-        raise ValueError("Filename must be a netCDF file ending in '.nc'")
+    if not isinstance(precipMetadataDictionary, dict):
+        raise TypeError(
+            "precipMetadataDictionary must be a dictionary containing the metadata about the precipitation field")
+    if not "timestamps" in precipMetadataDictionary.keys():
+        raise KeyError("precipitation field metadata must contain the key 'timestamps'")
 
     if not isinstance(modelMetadataDictionary, dict):
         raise TypeError(
             "modelMetadataDictionary must be a dictionary containing the metadata about the snow level, temperature, "
             "and ground temperature files")
 
-    if not isinstance(topoFilename, str):
-        raise TypeError("topoFilename must be a string containing the path to the topography file")
+    if not isinstance(topoMetadataDictionary, dict):
+        raise TypeError("topoMetadataDictionary must be a dictionary containing metadata about the topography")
 
-    if nwc_projectionString is not None and not isinstance(nwc_projectionString, str):
-        raise TypeError("nwc_projectionString must be a string containing the NWC projection string")
+    if src_timestep is not None and (not isinstance(src_timestep, int) or not src_timestep > 0):
+        raise TypeError("src_timestep must be a positive integer")
 
-    if members is not None and not isinstance(members, int):
-        raise TypeError("members must be an integer")
-    if not members > 0 or not members < 27:
-        raise ValueError("members must be a positive integer between 1 and 26 inclusive")
-
-    if timeBase is not None and not isinstance(timeBase, int):
-        raise TypeError("timeBase must be a positive integer")
-    if not timeBase > 0:
-        raise ValueError("timeBase must be a positive integer")
-
-    if timeStep is not None and not isinstance(timeStep, int):
-        raise TypeError("timeStep must be a positive integer")
-    if not timeStep > 0:
-        raise ValueError("timeStep must be a positive integer")
-
-    if topo_interpolation is not None and not isinstance(topo_interpolation, bool):
-        raise TypeError("topo_interpolation must be a boolean")
-
-    if desired_output is not None and not isinstance(desired_output, str):
-        raise TypeError("desired_output must be one of the strings in the list [\"mean\", \"members\"]")
-    if desired_output not in ["mean", "members"]:
-        raise ValueError("desired_output must be one of the strings in the list [\"mean\", \"members\"]")
+    if trgt_timestep is not None and (not isinstance(trgt_timestep, int) or not trgt_timestep > 0):
+        raise TypeError("trgt_timestep must be a positive integer")
 
     ####################################################################################
 
     # Define default parameter values
-    if members is None:
-        members = 1
-    if timeBase is None:
-        timeBase = 60
-    if timeStep is None:
-        timeStep = 5
-    if topo_interpolation is None:
-        topo_interpolation = False
-    if desired_output is None:
-        desired_output = 'members'
-
+    if src_timestep is None:
+        src_timestep = 60
+    if trgt_timestep is None:
+        trgt_timestep = 5
+    
     # --------------------------------------------------------------------------
 
     # Load Data
@@ -167,51 +132,32 @@ def diagnostic_prtype(filename,
     # --------------------------------------------------------------------------
 
     # Load Topography
-    topo_grid = np.loadtxt(topoFilename)
+    topo_grid = topographyData
     topo_grid = topo_grid[::-1, :]  # Reorientation
     print('Topography load done')
 
     # ---------------------------------------------------------------------------
 
-    # Load PYSTEPS data
-
-    # import netCDF file
-    r_nwc, metadata_nwc = import_netcdf_pysteps(filename)
-
-    # Set Metadata info
-    metadata_nwc['projection'] = nwc_projectionString
-    metadata_nwc['cartesian_unit'] = metadata_nwc['projection'][
-                                     nwc_projectionString.find('units=') + 6:
-                                     nwc_projectionString.find(
-                                         ' +no_defs', nwc_projectionString.find(
-                                             'units=') + 6)]
-    print('netCDF4 load done')
-
-    # --------------------------------------------------------------------------
-
     # Reproject
     #     projection over pySTEPS grid
-    R_ZS, _ = reproject_grids(R_ZS, r_nwc[0, 0, :, :], modelMetadataDictionary, metadata_nwc)
-    R_TT, _ = reproject_grids(R_TT, r_nwc[0, 0, :, :], modelMetadataDictionary, metadata_nwc)
-    R_TG, _ = reproject_grids(R_TG, r_nwc[0, 0, :, :], modelMetadataDictionary, metadata_nwc)
-    # The topography file is not required to be interpolated if it is already of the shape matching the grib files,
-    # i.e (591, 601)
-    if topo_interpolation is True:
-        topo_grid, _ = reproject_grids(np.array([topo_grid]), r_nwc[0, 0, :, :], modelMetadataDictionary, metadata_nwc)
-    print('Re-projection done')
+    R_ZS, _ = reproject_grids(R_ZS, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
+    R_TT, _ = reproject_grids(R_TT, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
+    R_TG, _ = reproject_grids(R_TG, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
+    topo_grid, _ = reproject_grids(topo_grid, precip_field[0, 0, :, :], topoMetadataDictionary, precipMetadataDictionary)
+    print('Re-projection on precip grid done')
 
     # --------------------------------------------------------------------------
 
-    # Calculate interpolation matrices
+    # Calculate temporal interpolation matrices
 
-    # Calculate interpolations values for matching timestamps between model and pySTEPS
-    interpolations_ZS, timestamps_idxs = generate_interpolations(R_ZS, metadata_nwc['timestamps'],
-                                                                 startdate, timeStep, timeBase)
-    interpolations_TT, _ = generate_interpolations(R_TT, metadata_nwc['timestamps'], startdate, timeStep,
-                                                   timeBase)
-    interpolations_TG, _ = generate_interpolations(R_TG, metadata_nwc['timestamps'], startdate, timeStep,
-                                                   timeBase)
-    print("Interpolation done!")
+    # Calculate temporal interpolations values for matching timestamps between model and pySTEPS
+    interpolations_ZS, timestamps_idxs = generate_interpolations(R_ZS, precipMetadataDictionary['timestamps'],
+                                                                 startdate, trgt_timestep, src_timestep)
+    interpolations_TT, _ = generate_interpolations(R_TT, precipMetadataDictionary['timestamps'], startdate, trgt_timestep,
+                                                   src_timestep)
+    interpolations_TG, _ = generate_interpolations(R_TG, precipMetadataDictionary['timestamps'], startdate, trgt_timestep,
+                                                   src_timestep)
+    print("Interpolation in time done!")
 
     # Clean (After interpolation, we don't need the reprojected data anymore)
     del R_ZS, R_TT,
@@ -221,49 +167,59 @@ def diagnostic_prtype(filename,
     # Diagnose precipitation type per member over time, using mean mask
 
     # WARNING (1): The grids have been sub-scripted to the model size. This requires the model metadata to
-    # be used for plotting. If the original PYSTEPS grid size is used (700x700) for plotting, the pysteps metadata_nwc
+    # be used for plotting. If the original PYSTEPS grid size is used (700x700) for plotting, the pysteps precipMetadataDictionary
     # should be used instead.
     #
     # WARNING (2): Topography does not need to be re-projected if it matches the grid size of the model.
 
-    print("Calculate precipitation type per member over time...")
+    print("Calculate precipitation type as mask for all members over time...")
 
     # Find subscript indexes for model grid
     x1, x2, y1, y2 = get_reprojected_indexes(interpolations_ZS[0])
 
     # Result list
-    ptype_list = np.zeros((r_nwc.shape[0] + 1, r_nwc.shape[1], x2 - x1, y2 - y1))
+    ptype_list = np.zeros((precip_field.shape[1], x2 - x1, y2 - y1))
 
     # loop over timestamps
     for ts in range(len(timestamps_idxs)):
         print("Calculating precipitation types at: ", str(timestamps_idxs[ts]))
-
-        # Members Mean matrix
-        r_nwc_mean = calculate_members_mean(r_nwc[:, ts, x1:x2, y1:y2])
-
-        # calculate precipitation type result with members mean
+        
+        # Members mean for this timestamp
+        precip_field_mean = np.mean(precip_field[:, ts, x1:x2, y1:y2],axis=0)
+        
+        # Calculate precipitation type result with members mean
         ptype_mean = calculate_precip_type(Znow=interpolations_ZS[ts, x1:x2, y1:y2],
                                            Temp=interpolations_TT[ts, x1:x2, y1:y2],
                                            GroundTemp=interpolations_TG[ts, x1:x2, y1:y2],
-                                           precipGrid=r_nwc_mean,
+                                           precipGrid=precip_field_mean,
                                            topographyGrid=topo_grid)
+        
+        # Add mean result to output
+        ptype_list[ts, :, :] = ptype_mean
 
-        # Intersect precipitation type by member using ptype_mean
-        for member in range(0, members):
-            res = np.copy(ptype_mean)
-            res[r_nwc[member, ts, x1:x2, y1:y2] == 0] = 0
-            ptype_list[member, ts, :, :] = res
+    #     # Members Mean matrix
+    #     precip_field_mean = calculate_members_mean(precip_field[:, ts, x1:x2, y1:y2])
 
-        # Add mean result at the end
-        ptype_list[-1, ts, :, :] = ptype_mean
+    #     # calculate precipitation type result with members mean
+    #     ptype_mean = calculate_precip_type(Znow=interpolations_ZS[ts, x1:x2, y1:y2],
+    #                                        Temp=interpolations_TT[ts, x1:x2, y1:y2],
+    #                                        GroundTemp=interpolations_TG[ts, x1:x2, y1:y2],
+    #                                        precipGrid=precip_field_mean,
+    #                                        topographyGrid=topo_grid)
 
-    if desired_output == 'members':
-        output = ptype_list[:members]
-    else:
-        output = ptype_list[-1]
+    #     # Intersect precipitation type by member using ptype_mean
+    #     for member in range(0, members):
+    #         res = np.copy(ptype_mean)
+    #         res[precip_field[member, ts, x1:x2, y1:y2] == 0] = 0
+    #         ptype_list[member, ts, :, :] = res
+
+    # if desired_output == 'members':
+    #     output = ptype_list[:members]
+    # else:
+    #     output = ptype_list[-1]
 
     print("--Script finished--")
-    return output
+    return ptype_list
 
 
 def plot_precipType_field(
@@ -630,17 +586,17 @@ def get_reprojected_indexes(reprojectedGrid):
     return x_start, x_end, y_start, y_end
 
 
-def grid_interpolation(numpyGridStart, numpyGridEnd, timeStep=5, timeBase=60):
+def grid_interpolation(numpyGridStart, numpyGridEnd, trgt_timestep=5, src_timestep=60):
     """ Time interpolation between 2 2D grids
 
     numpyGridStart:
         Numpy 2-D grid of start values
     numpyGridEnd:
         Numpy 2-D grid of end values
-    timeStep:
-        Size of the time step for interpolation (every 5, 10, 15. min)
-    timeBase:
-        Time period considered in minutes (e.g. over one hour = 60, 2 hours = 120)
+    trgt_timestep:
+        Time step for interpolation target grid in minutes
+    src_timestep:
+        Time of input grid in minutes
     applyOver:
         Array with sub-indexes to calculate interpolation (inner grid)
     ----
@@ -651,7 +607,7 @@ def grid_interpolation(numpyGridStart, numpyGridEnd, timeStep=5, timeBase=60):
     if numpyGridStart.shape != numpyGridEnd.shape:
         raise ValueError("ERROR: Grids have different dimensions")
 
-    interPoints = np.arange(0, (timeBase + timeStep), timeStep)
+    interPoints = np.arange(0, (src_timestep + trgt_timestep), trgt_timestep)
     interpolationGrid = np.zeros((len(interPoints), numpyGridStart.shape[0], numpyGridStart.shape[1]))
     interpolationGrid[:, :, :] = np.nan
 
@@ -664,7 +620,7 @@ def grid_interpolation(numpyGridStart, numpyGridEnd, timeStep=5, timeBase=60):
     return interpolationGrid
 
 
-def create_timestamp_indexing(nrOfModelMessages, startDateTime, timeStep=5, timeBase=60):
+def create_timestamp_indexing(nrOfModelMessages, startDateTime, trgt_timestep=5, src_timestep=60):
     """create a timestamp array for model indexing
 
     nrOfModelMessages:
@@ -673,11 +629,11 @@ def create_timestamp_indexing(nrOfModelMessages, startDateTime, timeStep=5, time
     startDateTime:
         Start date and time
 
-    timeStep:
-        Defines the size of the time step for interpolation
+    trgt_timestep:
+        Time step for interpolation in minutes
 
-    timeBase:
-        Time between messages in minutes
+    src_timestep:
+        Time step of model input in minutes
 
     ___
     Return:
@@ -689,29 +645,33 @@ def create_timestamp_indexing(nrOfModelMessages, startDateTime, timeStep=5, time
 
     result = []
     timestamp = startDateTime
-    interPoints = np.arange(0, (timeBase + timeStep), timeStep)
+    interPoints = np.arange(0, (src_timestep + trgt_timestep), trgt_timestep)
 
     for i in range(nrOfModelMessages - 1):
         for j in interPoints[:-1]:
             result.append(timestamp)
-            timestamp = timestamp + datetime.timedelta(minutes=timeStep)
+            timestamp = timestamp + datetime.timedelta(minutes=trgt_timestep)
 
     result.append(timestamp)
     return np.array(result)
 
 
-def generate_interpolations(model_reprojected_data, nwc_timestamps, startdate, timeStep=5, timeBase=60,
+def generate_interpolations(model_reprojected_data, nwc_timestamps, startdate, trgt_timestep=5, src_timestep=60,
                             dateFormat='%Y%m%d%H%M'):
     """Generate a sub-selection of the interpolation matrix for all messages available from model data
 
     model_reprojected_data:
         model reprojected data.
 
-    model_timestamps:
-        Array of timestamps every timeSteps period.
-
     nwc_timestamps:
-        Array of timestamps available from PYSTEPS metadata ['timestamps']
+        Timestamps of the precipitation field.
+        E.g., array of timestamps available from PYSTEPS metadata ['timestamps']
+        
+    trgt_timestep:
+        Time step for interpolation in minutes
+
+    src_timestep:
+        Time step of model input in minutes
 
     ----
     Return:
@@ -720,9 +680,9 @@ def generate_interpolations(model_reprojected_data, nwc_timestamps, startdate, t
     """
 
     # Create a timestamp index array for model interpolation matrix
-    model_timestamps = create_timestamp_indexing(model_reprojected_data.shape[0], startdate, timeStep=timeStep,
-                                                 timeBase=timeBase)
-    # Convert metadata_nwc['timestamps'] to datetime
+    model_timestamps = create_timestamp_indexing(model_reprojected_data.shape[0], startdate, trgt_timestep=trgt_timestep,
+                                                 src_timestep=src_timestep)
+    # Convert precipMetadataDictionary['timestamps'] to datetime
     nwc_ts = [datetime.datetime.strptime(ts.strftime(dateFormat), dateFormat) for ts in nwc_timestamps]
 
     model_start = np.where(model_timestamps == nwc_ts[0])[0][0]
@@ -739,7 +699,7 @@ def generate_interpolations(model_reprojected_data, nwc_timestamps, startdate, t
         if result_idx < resultMatrix.shape[0]:
             # calculate interpolations
             interpolationMatrix = grid_interpolation(model_reprojected_data[m - 1], model_reprojected_data[m],
-                                                     timeStep=timeStep, timeBase=timeBase)
+                                                     trgt_timestep=trgt_timestep, src_timestep=src_timestep)
             interp_idx = 0
             # Add the interpolation values to the result matrix (this assignment can be done without looping...)
             while interp_idx < interpolationMatrix.shape[0] and (result_idx < resultMatrix.shape[0]):
