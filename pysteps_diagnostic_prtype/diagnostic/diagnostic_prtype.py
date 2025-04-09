@@ -502,7 +502,7 @@ def calculate_precip_type(Znow, Temp, GroundTemp, precipGrid, topographyGrid, DZ
     Znow:
         snow level 2D grid
     Temp:
-        temperature 2D grid
+        2m temperature 2D grid
     GroundTemp:
         ground temperature 2D grid
     precipGrid:
@@ -512,9 +512,9 @@ def calculate_precip_type(Znow, Temp, GroundTemp, precipGrid, topographyGrid, DZ
     DZML:
         thickness of the melting layer (default 100m)
     TT0:
-        temperature threshold below which rain will freeze when it hits a freezing ground (default 2C)
+        2m temperature threshold below which rain will freeze when it hits a freezing ground (default 2C)
     TG0:
-        temperature threshold below which we have freezing rain or ground (default 0C)
+        temperature threshold for freezing rain, either for the 2m temperature or for the ground temperature
     RRMIN:
         minimum precipitation threshold (default 0mm/h)
 
@@ -524,7 +524,7 @@ def calculate_precip_type(Znow, Temp, GroundTemp, precipGrid, topographyGrid, DZ
 
     # Result grid
     result = np.zeros((precipGrid.shape[0], precipGrid.shape[1]))
-    topoZSDiffGrid = (Znow - topographyGrid)  # dzs
+    topoZSDiffGrid = (Znow - topographyGrid)  # dzs -> higher means we are lower wrt the snow level
     precipMask = (precipGrid > RRMIN)
 
     # SNOW ((dzs<-1.5*DZML) || ( (ZH[i][j] <= 1.5*DZML) && (dzs<=0)))
