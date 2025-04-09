@@ -50,9 +50,9 @@ def diagnostic_prtype(precip_field,
       Must contain the key "timestamps".
       See pysteps.io.importers for metadata doc.
 
-    startdate : datetime
-      The time and date of the model files in the format "%Y%m%d%H%M" e.g. 202305010000 for midnight on the 1st of
-      May 2023.
+    startdate : str
+      The time and date of the model files in the format "%Y%m%d%H%M"
+      e.g. 202305010000 for midnight on the 1st of May 2023.
 
     snowLevelData: 3D Array
       Data should be in the form of a 3D matrix. [time step, X-coord, Y-coord]
@@ -120,6 +120,15 @@ def diagnostic_prtype(precip_field,
         src_timestep = 60
     if trgt_timestep is None:
         trgt_timestep = 5
+        
+    # Convert startdate to datetime
+    startdate = datetime.datetime.strptime(startdate, "%Y%m%d%H%M")
+    
+    # Match precip_field dimension to expected shape ([member,time step,X-coord,Y-coord])
+    if len(precip_field.shape) == 2:
+        precip_field = precip_field[np.newaxis,:]
+    if len(precip_field.shape) == 3:
+        precip_field = precip_field[np.newaxis,:]
 
     # ---------------------------------------------------------------------------
 
@@ -589,15 +598,14 @@ def create_timestamp_indexing(nrOfModelMessages, startDateTime, trgt_timestep=5,
         raise ValueError("Not enough interpolation messages, should be at least 2")
 
     result = []
-    timestamp = startDateTime
     interPoints = np.arange(0, (src_timestep + trgt_timestep), trgt_timestep)
 
     for i in range(nrOfModelMessages - 1):
         for j in interPoints[:-1]:
-            result.append(timestamp)
-            timestamp = timestamp + datetime.timedelta(minutes=trgt_timestep)
+            result.append(startDateTime)
+            startDateTime = startDateTime + datetime.timedelta(minutes=trgt_timestep)
 
-    result.append(timestamp)
+    result.append(startDateTime)
     return np.array(result)
 
 
@@ -611,12 +619,18 @@ def generate_interpolations(model_reprojected_data, nwc_timestamps, startdate, t
     nwc_timestamps:
         Timestamps of the precipitation field.
         E.g., array of timestamps available from PYSTEPS metadata ['timestamps']
+    
+    startdate:
+        datetime object
         
     trgt_timestep:
         Time step for interpolation in minutes
 
     src_timestep:
         Time step of model input in minutes
+        
+    dateFormat:
+        use any datetime format string (used to ensure consient times, not related to data input)
 
     ----
     Return:
