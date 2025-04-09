@@ -120,30 +120,15 @@ def diagnostic_prtype(precip_field,
         src_timestep = 60
     if trgt_timestep is None:
         trgt_timestep = 5
-    
-    # --------------------------------------------------------------------------
-
-    # Load Data
-    R_ZS = snowLevelData
-    R_TT = temperatureData
-    R_TG = groundTemperatureData
-    print('Data load done')
-
-    # --------------------------------------------------------------------------
-
-    # Load Topography
-    topo_grid = topographyData
-    topo_grid = topo_grid[::-1, :]  # Reorientation
-    print('Topography load done')
 
     # ---------------------------------------------------------------------------
 
     # Reproject
     #     projection over pySTEPS grid
-    R_ZS, _ = reproject_grids(R_ZS, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
-    R_TT, _ = reproject_grids(R_TT, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
-    R_TG, _ = reproject_grids(R_TG, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
-    topo_grid, _ = reproject_grids(topo_grid, precip_field[0, 0, :, :], topoMetadataDictionary, precipMetadataDictionary)
+    snowLevelData, _ = reproject_grids(snowLevelData, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
+    temperatureData, _ = reproject_grids(temperatureData, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
+    groundTemperatureData, _ = reproject_grids(groundTemperatureData, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
+    topo_grid, _ = reproject_grids(topographyData, precip_field[0, 0, :, :], topoMetadataDictionary, precipMetadataDictionary)
     print('Re-projection on precip grid done')
 
     # --------------------------------------------------------------------------
@@ -151,16 +136,16 @@ def diagnostic_prtype(precip_field,
     # Calculate temporal interpolation matrices
 
     # Calculate temporal interpolations values for matching timestamps between model and pySTEPS
-    interpolations_ZS, timestamps_idxs = generate_interpolations(R_ZS, precipMetadataDictionary['timestamps'],
+    interpolations_ZS, timestamps_idxs = generate_interpolations(snowLevelData, precipMetadataDictionary['timestamps'],
                                                                  startdate, trgt_timestep, src_timestep)
-    interpolations_TT, _ = generate_interpolations(R_TT, precipMetadataDictionary['timestamps'], startdate, trgt_timestep,
+    interpolations_TT, _ = generate_interpolations(temperatureData, precipMetadataDictionary['timestamps'], startdate, trgt_timestep,
                                                    src_timestep)
-    interpolations_TG, _ = generate_interpolations(R_TG, precipMetadataDictionary['timestamps'], startdate, trgt_timestep,
+    interpolations_TG, _ = generate_interpolations(groundTemperatureData, precipMetadataDictionary['timestamps'], startdate, trgt_timestep,
                                                    src_timestep)
     print("Interpolation in time done!")
 
     # Clean (After interpolation, we don't need the reprojected data anymore)
-    del R_ZS, R_TT,
+    del snowLevelData, temperatureData, groundTemperatureData, topographyData
 
     # --------------------------------------------------------------------------
 
@@ -196,27 +181,6 @@ def diagnostic_prtype(precip_field,
         
         # Add mean result to output
         ptype_list[ts, :, :] = ptype_mean
-
-    #     # Members Mean matrix
-    #     precip_field_mean = calculate_members_mean(precip_field[:, ts, x1:x2, y1:y2])
-
-    #     # calculate precipitation type result with members mean
-    #     ptype_mean = calculate_precip_type(Znow=interpolations_ZS[ts, x1:x2, y1:y2],
-    #                                        Temp=interpolations_TT[ts, x1:x2, y1:y2],
-    #                                        GroundTemp=interpolations_TG[ts, x1:x2, y1:y2],
-    #                                        precipGrid=precip_field_mean,
-    #                                        topographyGrid=topo_grid)
-
-    #     # Intersect precipitation type by member using ptype_mean
-    #     for member in range(0, members):
-    #         res = np.copy(ptype_mean)
-    #         res[precip_field[member, ts, x1:x2, y1:y2] == 0] = 0
-    #         ptype_list[member, ts, :, :] = res
-
-    # if desired_output == 'members':
-    #     output = ptype_list[:members]
-    # else:
-    #     output = ptype_list[-1]
 
     print("--Script finished--")
     return ptype_list
@@ -545,25 +509,6 @@ def calculate_precip_type(Znow, Temp, GroundTemp, precipGrid, topographyGrid, DZ
     result[freezingMask] = 4
 
     return result
-
-
-def calculate_members_mean(membersData):
-    """Function to calculate the members average over time
-
-    membersData:
-        3D matrix composed by [members, grid dimension 1, grid dimension 2]
-    """
-
-    if len(membersData.shape) != 3:
-        raise ValueError("Invalid members data shape (expected [:,:,:]) " + str(membersData.shape))
-
-    meanMatrix = np.zeros((membersData.shape[1], membersData.shape[2]))
-    for member_idx in range(membersData.shape[0]):
-        meanMatrix = meanMatrix + membersData[member_idx, :, :]
-    meanMatrix = meanMatrix / membersData.shape[0]
-    # print('Mean member matrix done!')
-
-    return meanMatrix
 
 
 def get_reprojected_indexes(reprojectedGrid):
