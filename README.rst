@@ -28,7 +28,7 @@ This plugin can be installed using:
 
 .. code-block:: console
 
-   git clone git@github.com:FelixE91/pysteps-diagnosti-prtype.git
+   git clone git@github.com:FelixE91/pysteps-diagnostic-prtype.git
 
 and then install with
 
