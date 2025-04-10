@@ -133,13 +133,18 @@ def diagnostic_prtype(precip_field,
     # ---------------------------------------------------------------------------
 
     # Reproject
+    
+    #     topography over model grid
+    # reproject function expects a 3D array -> add a time axis to topographyData
+    topo_grid, _ = reproject_grids(topographyData[np.newaxis, :], snowLevelData[0, :, :], topoMetadataDictionary, modelMetadataDictionary)
+    topo_grid = topo_grid[0]#back to 2D array
+    print('Re-projection of topography grid done')
+
     #     projection over pySTEPS grid
     snowLevelData, _ = reproject_grids(snowLevelData, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
     temperatureData, _ = reproject_grids(temperatureData, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
     groundTemperatureData, _ = reproject_grids(groundTemperatureData, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
-    topo_grid, _ = reproject_grids(topographyData, precip_field[0, 0, :, :], topoMetadataDictionary, precipMetadataDictionary)
     print('Re-projection on precip grid done')
-
     # --------------------------------------------------------------------------
 
     # Calculate temporal interpolation matrices
@@ -186,7 +191,7 @@ def diagnostic_prtype(precip_field,
                                            Temp=interpolations_TT[ts, x1:x2, y1:y2],
                                            GroundTemp=interpolations_TG[ts, x1:x2, y1:y2],
                                            precipGrid=precip_field_mean,
-                                           topographyGrid=topo_grid)
+                                           topographyGrid=topo_grid[x1:x2, y1:y2])
         
         # Add mean result to output
         ptype_list[ts, :, :] = ptype_mean
