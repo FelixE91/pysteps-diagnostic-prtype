@@ -28,13 +28,13 @@ This plugin can be installed using:
 
 .. code-block:: console
 
-   git clone git@github.com:FelixE91/pysteps_diagnostic_prtype.git
+   git clone git@github.com:FelixE91/pysteps-diagnosti-prtype.git
 
 and then install with
 
 .. code-block:: console
 
-   pip install pysteps_diagnostic_prtype/
+   pip install pysteps-diagnostic-prtype/
 
 Credits
 =======
