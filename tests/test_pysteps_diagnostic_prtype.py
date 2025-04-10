@@ -35,8 +35,10 @@ def test_prtype_function():
     #    'modelMetadataDictionary'
     #    'topographyData'
     #    'topoMetadataDictionary'
+    
     ### load the test data (artificial)
-    startdate = "204002291545" 
+    startdate = "204002291545"
+    
     # use projection and dimension as in pysteps output with RADQPE (RMI) input
     # precipitation data
     precip_field = np.random.random((12,700,700))*10
@@ -57,13 +59,14 @@ def test_prtype_function():
         'zerovalue': 0.0,
         'threshold': 0.10000015050172806,
         'timestamps':pd.date_range(start=pd.to_datetime(startdate,format='%Y%m%d%H%M'),periods=12,freq='5min')
-        }    
+        }
+    
     # mimick the INCA basic fields transformed to a 3D array with
     # dimension (timestep,x,y)
     # timestep: 13 (analysis + 12h forecast, hourly)
     # x: 600, y: 590
-    size_x = 600#900
-    size_y = 590#900
+    size_x = 600
+    size_y = 590
     # create artifical snow level as array [m]
     snowLevelData = np.ones((13,size_x,size_y))*300
     # create artifical temperature field as array [K]
@@ -83,7 +86,8 @@ def test_prtype_function():
         'ypixelsize':1000,
         'cartesian_unit':'m',
         'yorigin':'upper',
-        }    
+        }
+    
     # create artifical topo data (or read Belgium data)
     ### need to change function input: from tope filename to tope array (to match other input)
     topographyData = np.zeros((size_x,size_y))
@@ -98,9 +102,8 @@ def test_prtype_function():
                           modelMetadataDictionary,
                           topographyData,
                           topoMetadataDictionary)
-    print(prtype_list.shape, precip_field.shape,snowLevelData.shape)
-    # assert prtype_list.shape == (precip_field.shape[0],
-    #                              min(precip_field.shape[1],temperatureData.shape[1]),
-    #                              min(precip_field.shape[2],temperatureData.shape[2])
-    #                              )
 
+    # test the shape
+    assert prtype_list.shape == precip_field.shape
+    
+    # more tests ?

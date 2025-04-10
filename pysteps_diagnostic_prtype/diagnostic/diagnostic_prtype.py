@@ -135,15 +135,16 @@ def diagnostic_prtype(precip_field,
     # Reproject
     
     #     topography over model grid
-    # reproject function expects a 3D array -> add a time axis to topographyData
-    topo_grid, _ = reproject_grids(topographyData[np.newaxis, :], snowLevelData[0, :, :], topoMetadataDictionary, modelMetadataDictionary)
-    topo_grid = topo_grid[0]#back to 2D array
-    print('Re-projection of topography grid done')
-
+    # # reproject function expects a 3D array -> add a time axis to topographyData
+    # topo_grid, _ = reproject_grids(topographyData[np.newaxis, :], snowLevelData[0, :, :], topoMetadataDictionary, modelMetadataDictionary)
+    # topo_grid = topo_grid[0]#back to 2D array
+    # print('Re-projection of topography grid done')
     #     projection over pySTEPS grid
-    snowLevelData, _ = reproject_grids(snowLevelData, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
+    snowLevelData, meta = reproject_grids(snowLevelData, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
     temperatureData, _ = reproject_grids(temperatureData, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
     groundTemperatureData, _ = reproject_grids(groundTemperatureData, precip_field[0, 0, :, :], modelMetadataDictionary, precipMetadataDictionary)
+    topo_grid, _ = reproject_grids(topographyData[np.newaxis, :], snowLevelData[0, :, :], topoMetadataDictionary, meta)
+    topo_grid = topo_grid[0]#back to 2D array
     print('Re-projection on precip grid done')
     # --------------------------------------------------------------------------
 
@@ -173,25 +174,36 @@ def diagnostic_prtype(precip_field,
 
     print("Calculate precipitation type as mask for all members over time...")
 
-    # Find subscript indexes for model grid
-    x1, x2, y1, y2 = get_reprojected_indexes(interpolations_ZS[0])
+    ######
+    # I think the next line is what we'd like to avoid - we do not want to use the indexes
+    # but rather return NaNs for pixel where one or the other grid does not exist
+    ########
+    # # Find subscript indexes for model grid
+    # x1, x2, y1, y2 = get_reprojected_indexes(interpolations_ZS[0])
 
     # Result list
-    ptype_list = np.zeros((precip_field.shape[1], x2 - x1, y2 - y1))
+    # ptype_list = np.zeros((precip_field.shape[1], x2 - x1, y2 - y1))
+    ptype_list = np.zeros((precip_field.shape[1], precip_field.shape[2], precip_field.shape[3]))
 
     # loop over timestamps
     for ts in range(len(timestamps_idxs)):
         print("Calculating precipitation types at: ", str(timestamps_idxs[ts]))
         
         # Members mean for this timestamp
-        precip_field_mean = np.mean(precip_field[:, ts, x1:x2, y1:y2],axis=0)
+        # precip_field_mean = np.mean(precip_field[:, ts, x1:x2, y1:y2],axis=0)
+        precip_field_mean = np.mean(precip_field[:, ts, :, :],axis=0)
         
         # Calculate precipitation type result with members mean
-        ptype_mean = calculate_precip_type(Znow=interpolations_ZS[ts, x1:x2, y1:y2],
-                                           Temp=interpolations_TT[ts, x1:x2, y1:y2],
-                                           GroundTemp=interpolations_TG[ts, x1:x2, y1:y2],
+        # ptype_mean = calculate_precip_type(Znow=interpolations_ZS[ts, x1:x2, y1:y2],
+        #                                    Temp=interpolations_TT[ts, x1:x2, y1:y2],
+        #                                    GroundTemp=interpolations_TG[ts, x1:x2, y1:y2],
+        #                                    precipGrid=precip_field_mean,
+        #                                    topographyGrid=topo_grid[x1:x2, y1:y2])
+        ptype_mean = calculate_precip_type(Znow=interpolations_ZS[ts],
+                                           Temp=interpolations_TT[ts],
+                                           GroundTemp=interpolations_TG[ts],
                                            precipGrid=precip_field_mean,
-                                           topographyGrid=topo_grid[x1:x2, y1:y2])
+                                           topographyGrid=topo_grid)
         
         # Add mean result to output
         ptype_list[ts, :, :] = ptype_mean
